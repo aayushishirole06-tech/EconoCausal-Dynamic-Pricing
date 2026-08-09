@@ -10,7 +10,7 @@ EconoCausal is an AI-powered dynamic pricing system that estimates the causal im
 
 - **Aayushi Shirole** – Team Lead
 - Sathiya
-- Yunsari
+- Yunasri
 
 ---
 
