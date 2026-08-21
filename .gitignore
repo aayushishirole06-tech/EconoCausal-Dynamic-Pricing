@@ -28,3 +28,4 @@ Thumbs.db
 
 # Ignore raw datasets
 data/raw/*.csv
+data/processed/customer_features_eda.csv
