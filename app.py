@@ -216,6 +216,10 @@ st.caption(
     f"Revenue impact relative to current pricing: "
     f"{selected_revenue_change:+.2f}%"
 )
+st.caption(
+    f"Demand impact relative to current pricing: "
+    f"{selected_demand_change:+.2f}%"
+)
 
 
 # =========================================================
