@@ -470,6 +470,51 @@ with tab3:
 
 
 # =========================================================
+# METHODOLOGY
+# =========================================================
+
+st.header("📚 Methodology")
+
+with st.expander("How the pricing recommendation is generated"):
+
+    st.markdown("""
+    **1. Historical Retail Data**
+
+    Transaction-level retail data is aggregated into a
+    product-month panel containing price, demand and
+    historical demand information.
+
+    **2. Causal Modeling**
+
+    Double Machine Learning (DML) is used to estimate the
+    causal effect of price on demand while controlling for
+    relevant observed covariates.
+
+    **3. Treatment Effect**
+
+    The estimated treatment effect represents the expected
+    change in demand associated with a one-unit change in price,
+    under the model assumptions.
+
+    **4. Price Simulation**
+
+    Multiple price-change scenarios are evaluated from
+    -10% to +20%.
+
+    **5. Revenue Evaluation**
+
+    For each scenario, predicted demand and revenue are
+    calculated and compared with the current pricing scenario.
+
+    **6. Recommendation**
+
+    The scenario with the highest predicted revenue among
+    the tested price changes is presented as the
+    **best tested pricing scenario**.
+    """)
+
+
+# =========================================================
 # FOOTER
 # =========================================================
 
