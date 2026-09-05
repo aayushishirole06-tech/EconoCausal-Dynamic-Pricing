@@ -320,10 +320,18 @@ with tab2:
         linewidth=2
     )
 
+    ax1.axhline(
+    current_revenue,
+    linestyle="--",
+    linewidth=2,
+    label="Current Revenue"
+)
+
     ax1.set_xlabel("Price Change (%)")
     ax1.set_ylabel("Predicted Revenue (£)")
     ax1.set_title("Predicted Revenue vs Price Change")
     ax1.grid(True)
+    ax1.legend()
 
     st.pyplot(fig1)
 
