@@ -48,3 +48,24 @@ EconoCausal is an AI-powered dynamic pricing system that estimates the causal im
 ## 📅 Status
 
 🟢 Project Initialization
+## Interactive Dynamic Pricing Dashboard
+
+The project includes an interactive Streamlit dashboard for analyzing causal pricing effects and evaluating dynamic pricing scenarios.
+
+### Dashboard Features
+
+- Key business performance indicators
+- Interactive price-change simulator
+- Predicted demand and revenue analysis
+- Pricing scenario comparison
+- Revenue improvement analysis
+- Demand impact analysis
+- Causal Machine Learning model results
+- Pricing recommendation based on tested scenarios
+
+### Run the Dashboard Locally
+
+Install the required dependencies:
+
+```bash
+pip install -r requirements.txt
