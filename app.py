@@ -338,16 +338,24 @@ with tab2:
         linewidth=2
     )
 
-    ax2.set_xlabel("Price Change (%)")
-    ax2.set_ylabel("Predicted Demand (Units)")
-    ax2.set_title("Predicted Demand vs Price Change")
-    ax2.grid(True)
+   ax2.axhline(
+    current_demand,
+    linestyle="--",
+    linewidth=2,
+    label="Current Demand"
+)
 
-    st.pyplot(fig2)
+ax2.set_xlabel("Price Change (%)")
+ax2.set_ylabel("Predicted Demand (Units)")
+ax2.set_title("Predicted Demand vs Price Change")
+ax2.legend()
+ax2.grid(True)
 
-    st.subheader("Current vs Selected Scenario")
+st.pyplot(fig2)
 
-    comparison = pd.DataFrame({
+st.subheader("Current vs Selected Scenario")
+
+comparison = pd.DataFrame({
         "Metric": [
             "Price Change",
             "Demand",
@@ -365,7 +373,7 @@ with tab2:
         ]
     })
 
-    st.dataframe(
+st.dataframe(
     display_df,
     use_container_width=True,
     hide_index=True,
