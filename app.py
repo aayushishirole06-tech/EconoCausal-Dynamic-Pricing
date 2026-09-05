@@ -366,10 +366,26 @@ with tab2:
     })
 
     st.dataframe(
-        comparison,
-        use_container_width=True,
-        hide_index=True
-    )
+    display_df,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Price Change (%)": st.column_config.TextColumn(
+            "Price Change"
+        ),
+        "Predicted Demand": st.column_config.NumberColumn(
+            "Predicted Demand",
+            format="%d"
+        ),
+        "Predicted Revenue (£)": st.column_config.NumberColumn(
+            "Predicted Revenue",
+            format="£%.2f"
+        ),
+        "Revenue Change (%)": st.column_config.NumberColumn(
+            "Revenue Change"
+        )
+    }
+)
 
 
 # =========================================================
