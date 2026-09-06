@@ -61,7 +61,7 @@ The project includes an interactive Streamlit dashboard for analyzing causal pri
 - Revenue improvement analysis
 - Demand impact analysis
 - Causal Machine Learning model results
-- Pricing recommendation based on tested scenarios
+- Pricing recommendation based on tested scenario
 
 ### Run the Dashboard Locally
 
