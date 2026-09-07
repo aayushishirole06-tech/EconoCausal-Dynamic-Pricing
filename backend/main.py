@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 import pandas as pd
@@ -6,7 +6,7 @@ import numpy as np
 
 
 # ============================================================
-# 1. FASTAPI APPLICATION
+# ECONOCAUSAL - DYNAMIC PRICING BACKEND
 # ============================================================
 
 app = FastAPI(
@@ -17,7 +17,7 @@ app = FastAPI(
 
 
 # ============================================================
-# 2. CORS CONFIGURATION
+# CORS
 # ============================================================
 
 app.add_middleware(
@@ -25,13 +25,19 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
 
 # ============================================================
-# 3. PROJECT PATH
+# PROJECT PATH
 # ============================================================
+
+# main.py is inside:
+# EconoCausal-Dynamic-Pricing/backend/
+#
+# parent.parent gives:
+# EconoCausal-Dynamic-Pricing/
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -44,18 +50,16 @@ DATA_FILE = (
 
 
 # ============================================================
-# 4. LOAD DATASET
+# LOAD DATASET
 # ============================================================
 
 def load_dataset():
 
     if not DATA_FILE.exists():
 
-        print("")
-        print("ERROR: Dataset not found.")
-        print(f"Expected file:")
+        print("\nERROR: Dataset not found!")
+        print("Expected location:")
         print(DATA_FILE)
-        print("")
 
         return pd.DataFrame()
 
@@ -65,16 +69,30 @@ def load_dataset():
 
         if data.empty:
 
-            print("WARNING: Dataset is empty.")
+            print("\nWARNING: Dataset is empty!")
 
             return pd.DataFrame()
+
+        data = data.replace(
+            [np.inf, -np.inf],
+            np.nan
+        )
+
+        data = data.drop_duplicates()
+
+        data = data.reset_index(drop=True)
+
+        print("\nDataset loaded successfully!")
+        print("Rows:", len(data))
+        print("Columns:", len(data.columns))
 
         return data
 
     except Exception as error:
 
         print(
-            f"ERROR while loading dataset: {error}"
+            "\nERROR while loading dataset:",
+            error
         )
 
         return pd.DataFrame()
@@ -84,30 +102,21 @@ df = load_dataset()
 
 
 # ============================================================
-# 5. CLEAN DATA
-# ============================================================
-
-if not df.empty:
-
-    df = df.replace(
-        [np.inf, -np.inf],
-        np.nan
-    )
-
-    df = df.drop_duplicates()
-
-    df = df.reset_index(drop=True)
-
-
-# ============================================================
-# 6. JSON VALUE CONVERSION
+# JSON VALUE CONVERSION
 # ============================================================
 
 def convert_value(value):
 
-    if pd.isna(value):
-
+    if value is None:
         return None
+
+    try:
+
+        if pd.isna(value):
+            return None
+
+    except Exception:
+        pass
 
     if isinstance(
         value,
@@ -117,7 +126,6 @@ def convert_value(value):
             np.int32
         )
     ):
-
         return int(value)
 
     if isinstance(
@@ -128,14 +136,13 @@ def convert_value(value):
             np.float32
         )
     ):
-
         return float(value)
 
     return value
 
 
 # ============================================================
-# 7. ROW TO JSON
+# ROW TO DICTIONARY
 # ============================================================
 
 def row_to_dict(row):
@@ -152,7 +159,7 @@ def row_to_dict(row):
 
 
 # ============================================================
-# 8. ROOT ENDPOINT
+# ROOT
 # ============================================================
 
 @app.get("/")
@@ -162,12 +169,14 @@ def root():
         "project": "EconoCausal",
         "application": "Dynamic Pricing System",
         "status": "running",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "dataset_loaded": not df.empty,
+        "documentation": "/docs"
     }
 
 
 # ============================================================
-# 9. HEALTH CHECK
+# HEALTH CHECK
 # ============================================================
 
 @app.get("/health")
@@ -178,10 +187,9 @@ def health():
         return {
             "status": "warning",
             "dataset_loaded": False,
+            "customers": 0,
             "message": "Pricing dataset is not loaded."
         }
-
-    customer_count = 0
 
     if "CustomerID" in df.columns:
 
@@ -196,12 +204,13 @@ def health():
     return {
         "status": "healthy",
         "dataset_loaded": True,
-        "customers": customer_count
+        "customers": customer_count,
+        "rows": len(df)
     }
 
 
 # ============================================================
-# 10. DATASET INFORMATION
+# DATASET INFORMATION
 # ============================================================
 
 @app.get("/dataset-info")
@@ -226,18 +235,24 @@ def dataset_info():
 
     return {
         "rows": int(len(df)),
-        "columns": list(df.columns),
+        "columns": df.columns.tolist(),
         "customers": customer_count,
         "file": str(DATA_FILE)
     }
 
 
 # ============================================================
-# 11. GET ALL CUSTOMERS
+# GET ALL CUSTOMERS
 # ============================================================
 
 @app.get("/customers")
-def get_customers():
+def get_customers(
+    limit: int = Query(
+        100,
+        ge=1,
+        le=1000
+    )
+):
 
     if df.empty:
 
@@ -246,9 +261,11 @@ def get_customers():
             detail="Dataset is not loaded."
         )
 
+    result = df.head(limit)
+
     records = []
 
-    for _, row in df.iterrows():
+    for _, row in result.iterrows():
 
         records.append(
             row_to_dict(row)
@@ -261,11 +278,13 @@ def get_customers():
 
 
 # ============================================================
-# 12. GET CUSTOMER
+# GET ONE CUSTOMER
 # ============================================================
 
 @app.get("/customer/{customer_id}")
-def get_customer(customer_id: str):
+def get_customer(
+    customer_id: str
+):
 
     if df.empty:
 
@@ -290,23 +309,22 @@ def get_customer(customer_id: str):
 
         raise HTTPException(
             status_code=404,
-            detail=(
-                f"Customer {customer_id} "
-                "was not found."
-            )
+            detail=f"Customer {customer_id} was not found."
         )
 
-    row = customer.iloc[0]
-
-    return row_to_dict(row)
+    return row_to_dict(
+        customer.iloc[0]
+    )
 
 
 # ============================================================
-# 13. CUSTOMER PRICING RECOMMENDATION
+# CUSTOMER PRICING RECOMMENDATION
 # ============================================================
 
 @app.get("/customer/{customer_id}/pricing")
-def customer_pricing(customer_id: str):
+def customer_pricing(
+    customer_id: str
+):
 
     if df.empty:
 
@@ -331,17 +349,10 @@ def customer_pricing(customer_id: str):
 
         raise HTTPException(
             status_code=404,
-            detail=(
-                f"Customer {customer_id} "
-                "was not found."
-            )
+            detail=f"Customer {customer_id} was not found."
         )
 
     row = customer.iloc[0]
-
-    # --------------------------------------------------------
-    # Helper for flexible column names
-    # --------------------------------------------------------
 
     def get_column(
         column_names,
@@ -364,81 +375,119 @@ def customer_pricing(customer_id: str):
             ["CustomerID"]
         ),
 
-        "TreatmentEffect": get_column(
-            [
-                "IndividualTreatmentEffect",
-                "TreatmentEffect"
-            ]
-        ),
+        "CustomerProfile": {
 
-        "CustomerResponse": get_column(
-            [
-                "CustomerResponse"
-            ]
-        ),
+            "TotalSpend": get_column(
+                ["TotalSpend"]
+            ),
 
-        "RecommendedDiscount": get_column(
-            [
-                "RecommendedDiscount",
-                "OptimalDiscount"
-            ]
-        ),
+            "TotalQuantity": get_column(
+                ["TotalQuantity"]
+            ),
 
-        "PricingStrategy": get_column(
-            [
-                "PricingStrategy",
-                "OptimizationStrategy"
-            ]
-        ),
+            "NumberOfTransactions": get_column(
+                ["NumberOfTransactions"]
+            ),
 
-        "CurrentPrice": get_column(
-            [
-                "CurrentAveragePrice",
-                "AverageUnitPrice"
-            ]
-        ),
+            "AverageOrderValue": get_column(
+                ["AverageOrderValue"]
+            ),
 
-        "RecommendedPrice": get_column(
-            [
-                "RecommendedPrice",
-                "OptimalPrice"
-            ]
-        ),
+            "AverageUnitPrice": get_column(
+                ["AverageUnitPrice"]
+            ),
 
-        "ExpectedRevenue": get_column(
-            [
-                "ExpectedRevenue",
-                "AdjustedExpectedRevenue",
-                "RecommendedRevenue"
-            ]
-        ),
+            "RecencyDays": get_column(
+                ["RecencyDays"]
+            ),
 
-        "PreviousSpend": get_column(
-            [
-                "PreviousSpend"
-            ]
-        ),
+            "SpendSegment": get_column(
+                ["SpendSegment"]
+            )
+        },
 
-        "PreviousTransactions": get_column(
-            [
-                "PreviousTransactions"
-            ]
-        ),
+        "CausalAnalysis": {
 
-        "RecencyDays": get_column(
-            [
-                "RecencyDays"
-            ]
-        )
+            "DiscountTreatment": get_column(
+                ["DiscountTreatment"]
+            ),
+
+            "PurchaseOutcome": get_column(
+                ["PurchaseOutcome"]
+            ),
+
+            "IndividualTreatmentEffect":
+                get_column(
+                    [
+                        "IndividualTreatmentEffect",
+                        "TreatmentEffect"
+                    ]
+                ),
+
+            "CustomerResponse":
+                get_column(
+                    ["CustomerResponse"]
+                )
+        },
+
+        "DynamicPricing": {
+
+            "RecommendedDiscount":
+                get_column(
+                    [
+                        "RecommendedDiscount",
+                        "OptimalDiscount"
+                    ]
+                ),
+
+            "PricingStrategy":
+                get_column(
+                    [
+                        "PricingStrategy",
+                        "OptimizationStrategy"
+                    ]
+                ),
+
+            "CurrentPrice":
+                get_column(
+                    [
+                        "CurrentAveragePrice",
+                        "AverageUnitPrice"
+                    ]
+                ),
+
+            "RecommendedPrice":
+                get_column(
+                    [
+                        "RecommendedPrice",
+                        "OptimalPrice"
+                    ]
+                ),
+
+            "ExpectedRevenue":
+                get_column(
+                    [
+                        "ExpectedRevenue",
+                        "AdjustedExpectedRevenue",
+                        "RecommendedRevenue"
+                    ]
+                )
+        }
     }
 
 
 # ============================================================
-# 14. HIGH RESPONSE CUSTOMERS
+# HIGH RESPONSE CUSTOMERS
 # ============================================================
 
 @app.get("/customers/high-response")
-def high_response_customers():
+def high_response_customers(
+    limit: int = Query(
+        20,
+        ge=1,
+        le=100
+    )
+):
 
     if df.empty:
 
@@ -451,10 +500,7 @@ def high_response_customers():
 
         raise HTTPException(
             status_code=500,
-            detail=(
-                "IndividualTreatmentEffect "
-                "column is missing."
-            )
+            detail="IndividualTreatmentEffect column is missing."
         )
 
     result = df[
@@ -464,7 +510,7 @@ def high_response_customers():
     result = result.sort_values(
         "IndividualTreatmentEffect",
         ascending=False
-    )
+    ).head(limit)
 
     records = []
 
@@ -481,7 +527,7 @@ def high_response_customers():
 
 
 # ============================================================
-# 15. PRICING STRATEGY SUMMARY
+# PRICING SUMMARY
 # ============================================================
 
 @app.get("/pricing-summary")
@@ -494,54 +540,70 @@ def pricing_summary():
             detail="Dataset is not loaded."
         )
 
-    if "PricingStrategy" not in df.columns:
+    result = {}
 
-        raise HTTPException(
-            status_code=500,
-            detail="PricingStrategy column is missing."
-        )
-
+    # Total customers
     if "CustomerID" in df.columns:
 
-        summary = (
-            df.groupby("PricingStrategy")
-            .agg(
-                Customers=(
-                    "CustomerID",
-                    "nunique"
-                )
-            )
-            .reset_index()
+        result["total_customers"] = int(
+            df["CustomerID"].nunique()
         )
 
-    else:
+    # Average treatment effect
+    if "IndividualTreatmentEffect" in df.columns:
 
-        summary = (
-            df["PricingStrategy"]
+        result["average_treatment_effect"] = float(
+            df["IndividualTreatmentEffect"].mean()
+        )
+
+    # Average discount
+    if "RecommendedDiscount" in df.columns:
+
+        result["average_recommended_discount"] = float(
+            df["RecommendedDiscount"].mean()
+        )
+
+    # Average recommended price
+    if "RecommendedPrice" in df.columns:
+
+        result["average_recommended_price"] = float(
+            df["RecommendedPrice"].mean()
+        )
+
+    # Expected revenue
+    if "ExpectedRevenue" in df.columns:
+
+        result["total_expected_revenue"] = float(
+            df["ExpectedRevenue"].sum()
+        )
+
+    # Customer response
+    if "CustomerResponse" in df.columns:
+
+        result["customer_response_distribution"] = {
+            str(key): int(value)
+            for key, value
+            in df["CustomerResponse"]
             .value_counts()
-            .reset_index()
-        )
+            .items()
+        }
 
-        summary.columns = [
-            "PricingStrategy",
-            "Customers"
-        ]
+    # Pricing strategy
+    if "PricingStrategy" in df.columns:
 
-    records = []
+        result["pricing_strategy_distribution"] = {
+            str(key): int(value)
+            for key, value
+            in df["PricingStrategy"]
+            .value_counts()
+            .items()
+        }
 
-    for _, row in summary.iterrows():
-
-        records.append(
-            row_to_dict(row)
-        )
-
-    return {
-        "strategies": records
-    }
+    return result
 
 
 # ============================================================
-# 16. STATISTICS
+# STATISTICS
 # ============================================================
 
 @app.get("/statistics")
@@ -556,133 +618,88 @@ def statistics():
 
     result = {}
 
-    # --------------------------------------------------------
-    # Customer count
-    # --------------------------------------------------------
-
     if "CustomerID" in df.columns:
 
         result["total_customers"] = int(
             df["CustomerID"].nunique()
         )
 
-    else:
+    if "TotalSpend" in df.columns:
 
-        result["total_customers"] = int(
-            len(df)
+        result["total_spend"] = float(
+            df["TotalSpend"].sum()
         )
 
-    # --------------------------------------------------------
-    # Treatment effect
-    # --------------------------------------------------------
+        result["average_spend"] = float(
+            df["TotalSpend"].mean()
+        )
+
+    if "TotalQuantity" in df.columns:
+
+        result["total_quantity"] = float(
+            df["TotalQuantity"].sum()
+        )
 
     if "IndividualTreatmentEffect" in df.columns:
 
-        result[
-            "average_treatment_effect"
-        ] = float(
-            df[
-                "IndividualTreatmentEffect"
-            ].mean()
+        result["average_treatment_effect"] = float(
+            df["IndividualTreatmentEffect"].mean()
         )
 
-        result[
-            "maximum_treatment_effect"
-        ] = float(
-            df[
-                "IndividualTreatmentEffect"
-            ].max()
+        result["maximum_treatment_effect"] = float(
+            df["IndividualTreatmentEffect"].max()
         )
 
-        result[
-            "minimum_treatment_effect"
-        ] = float(
-            df[
-                "IndividualTreatmentEffect"
-            ].min()
+        result["minimum_treatment_effect"] = float(
+            df["IndividualTreatmentEffect"].min()
         )
-
-    # --------------------------------------------------------
-    # Discount
-    # --------------------------------------------------------
 
     if "RecommendedDiscount" in df.columns:
 
-        result[
-            "average_discount"
-        ] = float(
-            df[
-                "RecommendedDiscount"
-            ].mean()
+        result["average_discount"] = float(
+            df["RecommendedDiscount"].mean()
         )
 
-        result[
-            "maximum_discount"
-        ] = float(
-            df[
-                "RecommendedDiscount"
-            ].max()
+        result["maximum_discount"] = float(
+            df["RecommendedDiscount"].max()
         )
-
-    # --------------------------------------------------------
-    # Prices
-    # --------------------------------------------------------
 
     if "CurrentAveragePrice" in df.columns:
 
-        result[
-            "average_current_price"
-        ] = float(
-            df[
-                "CurrentAveragePrice"
-            ].mean()
+        result["average_current_price"] = float(
+            df["CurrentAveragePrice"].mean()
         )
 
     if "RecommendedPrice" in df.columns:
 
-        result[
-            "average_recommended_price"
-        ] = float(
-            df[
-                "RecommendedPrice"
-            ].mean()
+        result["average_recommended_price"] = float(
+            df["RecommendedPrice"].mean()
         )
 
-    # --------------------------------------------------------
-    # Revenue
-    # --------------------------------------------------------
+    if "ExpectedRevenue" in df.columns:
 
-    if "RecommendedRevenue" in df.columns:
-
-        result[
-            "total_recommended_revenue"
-        ] = float(
-            df[
-                "RecommendedRevenue"
-            ].sum()
-        )
-
-    if "BaselineRevenue" in df.columns:
-
-        result[
-            "total_baseline_revenue"
-        ] = float(
-            df[
-                "BaselineRevenue"
-            ].sum()
+        result["total_expected_revenue"] = float(
+            df["ExpectedRevenue"].sum()
         )
 
     return result
 
 
 # ============================================================
-# 17. SEARCH CUSTOMERS
+# SEARCH CUSTOMERS
 # ============================================================
 
 @app.get("/search")
 def search_customers(
     customer_id: str = None,
-    strategy: str = None
+    strategy: str = None,
+    response: str = None,
+    segment: str = None,
+    limit: int = Query(
+        50,
+        ge=1,
+        le=500
+    )
 ):
 
     if df.empty:
@@ -694,54 +711,67 @@ def search_customers(
 
     result = df.copy()
 
-    # --------------------------------------------------------
-    # Search by customer ID
-    # --------------------------------------------------------
-
+    # Search by Customer ID
     if customer_id:
 
-        if "CustomerID" not in result.columns:
+        if "CustomerID" in result.columns:
 
-            raise HTTPException(
-                status_code=500,
-                detail="CustomerID column is missing."
-            )
+            result = result[
+                result["CustomerID"]
+                .astype(str)
+                .str.contains(
+                    str(customer_id),
+                    case=False,
+                    na=False
+                )
+            ]
 
-        result = result[
-            result["CustomerID"]
-            .astype(str)
-            .str.contains(
-                str(customer_id),
-                case=False,
-                na=False
-            )
-        ]
-
-    # --------------------------------------------------------
     # Search by pricing strategy
-    # --------------------------------------------------------
-
     if strategy:
 
-        if "PricingStrategy" not in result.columns:
+        if "PricingStrategy" in result.columns:
 
-            raise HTTPException(
-                status_code=500,
-                detail=(
-                    "PricingStrategy column "
-                    "is missing."
+            result = result[
+                result["PricingStrategy"]
+                .astype(str)
+                .str.contains(
+                    strategy,
+                    case=False,
+                    na=False
                 )
-            )
+            ]
 
-        result = result[
-            result["PricingStrategy"]
-            .astype(str)
-            .str.contains(
-                strategy,
-                case=False,
-                na=False
-            )
-        ]
+    # Search by customer response
+    if response:
+
+        if "CustomerResponse" in result.columns:
+
+            result = result[
+                result["CustomerResponse"]
+                .astype(str)
+                .str.contains(
+                    response,
+                    case=False,
+                    na=False
+                )
+            ]
+
+    # Search by spend segment
+    if segment:
+
+        if "SpendSegment" in result.columns:
+
+            result = result[
+                result["SpendSegment"]
+                .astype(str)
+                .str.contains(
+                    segment,
+                    case=False,
+                    na=False
+                )
+            ]
+
+    result = result.head(limit)
 
     records = []
 
@@ -758,49 +788,54 @@ def search_customers(
 
 
 # ============================================================
-# 18. STARTUP EVENT
+# RELOAD DATASET
+# ============================================================
+
+@app.post("/reload")
+def reload_dataset():
+
+    global df
+
+    df = load_dataset()
+
+    return {
+        "message": "Dataset reload completed.",
+        "dataset_loaded": not df.empty,
+        "rows": len(df)
+    }
+
+
+# ============================================================
+# STARTUP
 # ============================================================
 
 @app.on_event("startup")
 def startup_event():
 
-    print("")
-    print("========================================")
-    print("EconoCausal API Started")
-    print("========================================")
+    print("\n")
+    print("=" * 60)
+    print("ECONOCAUSAL API STARTED")
+    print("=" * 60)
 
-    print(
-        f"Dataset: {DATA_FILE}"
-    )
+    print("Dataset:")
+    print(DATA_FILE)
 
     if df.empty:
 
-        print(
-            "WARNING: Dataset not loaded."
-        )
+        print("\nDataset Status: NOT LOADED")
 
     else:
 
+        print("\nDataset Status: LOADED")
+        print("Rows:", len(df))
+
         if "CustomerID" in df.columns:
 
-            customers = df[
-                "CustomerID"
-            ].nunique()
+            print(
+                "Customers:",
+                df["CustomerID"].nunique()
+            )
 
-        else:
-
-            customers = len(df)
-
-        print(
-            f"Customers loaded: {customers}"
-        )
-
-        print(
-            f"Rows loaded: {len(df)}"
-        )
-
-        print(
-            "Dataset loaded successfully."
-        )
-
-    print("========================================")
+    print("=" * 60)
+    print("Swagger: http://127.0.0.1:8000/docs")
+    print("=" * 60)
