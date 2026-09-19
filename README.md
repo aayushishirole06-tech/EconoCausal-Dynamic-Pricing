@@ -69,6 +69,14 @@ InvoiceDate   Transaction date and time
 UnitPrice     Unit price
 CustomerID    Customer identifier
 Country       Customer country
+- Key business performance indicators
+- Interactive price-change simulator
+- Predicted demand and revenue analysis
+- Pricing scenario comparison
+- Revenue improvement analysis
+- Demand impact analysis
+- Causal Machine Learning model results
+- Pricing recommendation based on tested scenario
 
 Data Preprocessing
 
